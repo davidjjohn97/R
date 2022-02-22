@@ -1,0 +1,529 @@
+---
+title: "  **Nonparametric Statistical Methods / Sampling and Simulation**"
+output: pdf_document
+header-includes:
+  - \usepackage{fancyhdr}
+  - \usepackage{setspace}\spacing{1.5}
+  - \usepackage{titling}
+  - \pretitle{\begin{center}
+    \includegraphics[width=6in,height=11in]{image.png}\LARGE\\}
+  - \posttitle{\end{center}}
+  - \usepackage{sectsty} \sectionfont{\emph}
+---
+\begin{centering}
+\vspace{1cm}
+\Large
+{\bf Submitted By : David Joseph Johnson } \\
+\vspace{.75cm}
+{\bf 02/13/2022 } \\
+\end{centering}
+\newpage
+\tableofcontents
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+Parametric tests are often preferred since it is more powerful.While conducting test using z,t and F tests or rather parametric tests, assumptions like 'population is normally distributed' are considered.  
+
+Non-parametric statistical tests facilitates a more flexible analysis applicable to non-quantitative data without making such assumptions. Non-parametric tests are based on ranks of measurement called rank statistics. 
+
+Non-parametric Tests:
+
+* Sign Test: is often used as an alternative for a one-sample t test or a paired t test.
+
+* Wilcoxon Test: is used to determine if two independent samples were selected from populations that have the same distributions. It is used as an alternative to z and t tests for independent samples.
+
+* Kruskal-Wallis Test: This procedure is used to compare three or more groups on a dependent variable that is measured on at least an ordinal level.
+
+* Runs Test: A runs test is a statistical procedure that examines whether a string of data is occurring randomly from a specific distribution. The runs test analyzes the occurrence of similar events that are separated by events that are different.
+
+* Spearman Rank Correlation Coefficient: measures the strength and direction of association between two ranked variables.
+
+In these assignment different problems are exercised using Non-parametric methods to find the solutions.
+
+\newpage
+
+# Analysis
+```{r , echo=FALSE ,results='hide', warning=FALSE, message=FALSE}
+### Install ISLR Package which contains the College Dataset
+### Invoke Packages
+library("ISLR")
+library("ggplot2")
+library("corrplot")
+library("dplyr")
+library("janitor")
+library("tidyr")
+library("RColorBrewer")
+library("car")
+library("psych")
+library("imputeTS")
+library("corrplot")
+library("MASS")
+library("leaps")
+library("knitr")
+library("tibble")
+library("stargazer")
+library("lattice")
+library("caret")
+library("pROC")
+library("glmnet")
+library("Metrics")
+library("knitr")
+library("kableExtra")
+```
+
+## Section 13-2
+
+### 13-2.6  Game Attendance
+
+**An athletic director suggests the median number for the paid attendance at 20 local football games is 3000. The data for a random sample are shown. At alpha = 0.05, is there enough evidence to reject the claim? If you were printing the programs for the games, would you use this figure as a guide?**
+
+``` {r , echo=FALSE , warning=FALSE, message=FALSE}
+paid_attendees <-c(6210,3540,2792,5437,3150,6127,2800,2758,2700,2581,2500,3490,3012,2642,3700,2851,4875,2573,6030,2720)
+x = matrix(paid_attendees, ncol = 5,nrow = 4)
+x
+avg_paid_attendees <- sum(paid_attendees) / length(paid_attendees)
+```
+
+Here, the athletics director's suggestion that the median of the paid attendees = 3000 is considered as the Null Hypothesis.
+
+```{r }
+# Step 1: Stating Hypothesis
+# H0: Median number of paid attendance = 3000
+# H1: Median number of paid attendance != 3000
+
+# Set significance level
+alpha <- 0.05
+
+# Claim => Median number of paid attendance = 3000
+median <- 3000
+
+difference <- paid_attendees - median
+
+# Number of counts above median
+pos <- length(difference[difference > 0])
+
+# Number of counts below median
+neg <- length(difference[difference < 0])
+
+# No values equal to 3000 hence condition(difference = 0) ignored
+
+# Test
+result <- binom.test(x=c(pos,neg), alternative = "two.sided")
+result
+
+# Step 2: Finding Critical Value
+critical_value = qt(p=alpha, df=result$parameter, lower.tail=FALSE)
+critical_value
+# Step 3: Calculate Test Value
+result$statistic
+# Step 4: Decision
+# P-value
+result$p.value
+ifelse(result$p.value > alpha,"Failed to Reject Null Hypothesis","Reject Null Hypothesis")
+# Step 5: Conclusion
+# There is not enough evidence to conclude that the median is not 3000
+```
+
+In the scenario where programs for games need to be printed I would rather use average of the number of paid attendees.  
+The given median 3000 would have sufficed for only half of the previous games, hence using the rounded average(3625) would be a better decision.
+
+
+### 13-2.10  Lottery Ticket Sales 
+
+**A lottery outlet owner hypothesizes that she sells 200 lottery tickets a day. She randomly sampled 40 days and found that on 15 days she sold fewer than 200 tickets. At alpha = 0.05, is there sufficient evidence to conclude that the median is below 200 tickets?**
+
+```{r }
+# Step 1: Stating Hypothesis
+# H0: Median number of lottery tickets sold !< 200
+# H1: Median number of lottery tickets sold < 200
+
+# Set significance level
+alpha <- 0.05
+
+# Claim => Median lottery tickets sold = 200
+median <- 200
+# Number of counts above median
+pos <- 25
+# Number of counts below median
+neg <- 15
+# Test
+result <- binom.test(x=c(pos,neg), alternative = "two.sided")
+result
+
+# Step 2: Finding Critical Value
+critical_value = qt(p=alpha, df=result$parameter, lower.tail=FALSE)
+critical_value
+# Step 3: Calculate Test Value
+result$statistic
+# Step 4: Decision
+# P-value
+result$p.value
+ifelse(result$p.value > alpha,"Failed to Reject Null Hypothesis","Reject Null Hypothesis")
+# Step 5: Conclusion
+# There is not enough evidence to conclude that the median is less than 200
+```
+
+The Null Hypothesis isn't rejected, hence there isn't enough evidence to prove that median number of tickets sold is not less than 200.
+
+
+## Section 13-3 (Use the Wilcoxon rank sum test)
+
+### 13-3.4  Lengths of Prison Sentences
+
+**A random sample of men and women in prison was asked to give the length of sentence each received for a certain type of crime. At alpha = 0.05, test the claim that there is no difference in the sentence received by each gender. The data (in months) are shown here.** 
+
+``` {r , echo=FALSE , warning=FALSE, message=FALSE}
+crime_1 <- data.frame(Males = c(8,12,6,14,22,27,32,24,26),
+                 Females = c(7,5,2,3,21,26,30,9,4))
+
+crime_2 <- data.frame(Males = c(19,15,13,0,0),
+                 Females = c(17,23,12,11,16))
+as.data.frame(t(crime_1)) %>% kable(col.names = NULL) %>% kable_styling()
+as.data.frame(t(crime_2)) %>% kable(col.names = NULL) %>% kable_styling()
+```
+
+```{r }
+# Step 1: Stating Hypothesis
+# H0: There is no difference in sentence received by each gender
+# H1: There is a difference in sentence received by each gender
+
+# Set significance level
+alpha <- 0.05
+
+# Wilcoxon Test
+male_convicts <- c(8,12,6,14,22,27,32,24,26,19,15,13)
+female_convicts <- c(7,5,2,3,21,26,30,9,4,17,23,12,11,16)
+
+result <- wilcox.test(x=male_convicts,y=female_convicts, alternative = "two.sided", correct=FALSE)
+result
+
+# Step 2: Finding Critical Value
+# The vectors are unequal and the Degrees of freedom(result$parameter) was found to be NULL, hence critical value can't be computed using method qt, and critical value is neglected since decision is being made using p.value
+# Step 3: Calculate Test Value
+result$statistic
+# Step 4: Decision
+# P-value
+result$p.value
+ifelse(result$p.value > alpha,"Failed to Reject Null Hypothesis","Reject Null Hypothesis")
+# Step 5: Conclusion
+# There is not enough evidence to conclude that there is no difference in sentence received by each gender
+```
+
+Since the test failed to reject the Null hypothesis, there is not enough evidence to show that there is no difference in sentence receive based on gender.
+
+### 13-3.8  Winning Baseball Games  
+
+**For the years 1970–1993 the National League (NL) and the American League (AL) (major league baseball) were each divided into two divisions: East and West. Below are random samples of the number of games won by each league’s Eastern Division. At alpha = 0.05, is there sufficient evidence to conclude a difference in the number of wins?**    
+
+``` {r , echo=FALSE , warning=FALSE, message=FALSE}
+league_wins <- data.frame(NL = c(89,96,88,101,90,91,92,96,108,100,95,0),
+                      AL = c(108,86,91,97,100,102,95,104,95,89,88,101))
+
+as.data.frame(t(league_wins)) %>% kable(col.names = NULL) %>% kable_styling()
+```
+
+```{r }
+# Step 1: Stating Hypothesis
+# H0: There is no difference in number of wins
+# H1: There is a difference in number of wins
+
+# Set significance level
+alpha <- 0.05
+
+# Wilcox Test
+NL <- c(89,96,88,101,90,91,92,96,108,100,95)
+AL <- c(108,86,91,97,100,102,95,104,95,89,88,101)
+
+result <- wilcox.test(x=NL,y=AL, alterantive = "two.sided", correct=FALSE)
+result
+
+# Step 2: Finding Critical Value
+# The vectors are unequal and the Degrees of freedom(result$parameter) was found to be NULL, hence critical value can't be computed using method qt, and critical value is neglected since decision is being made using p.value
+# Step 3: Calculate Test Value
+result$statistic
+# Step 4: Decision
+# P-value
+result$p.value
+ifelse(result$p.value > alpha,"Failed to Reject Null Hypothesis","Reject Null Hypothesis")
+# Step 5: Conclusion
+# There is not enough evidence to conclude that there is difference in number of wins
+```
+
+Since the test failed to reject the Null hypothesis, there is not enough evidence to show that there is no difference in number of wins in the National League (NL) and the American League (AL).
+
+
+## Section 13-4 
+
+### 13-4.A  
+ 
+**Use Table K (or relevant software) to determine whether the null hypothesis should be rejected.** 
+
+* ws = 13, n = 15, alpha = 0.01, two-tailed 
+
+* ws = 32, n = 28, alpha = 0.025, one-tailed 
+
+* ws = 65, n = 20, alpha = 0.05, one-tailed 
+
+* ws = 22, n = 14, alpha = 0.10, two-tailed 
+
+
+``` {r }
+test_statistic_W = c(13,32,65,22)
+n = c(15,28,20,14)
+alpha_values = c(0.01,0.025,0.05,0.10)
+test_type = c("two-tailed","one-tailed","one-tailed","two-tailed")
+# Crtical Values are assigned from K-table
+critical_values = c(16,117,60,26)
+data_df <- data.frame(test_statistic_W,n,alpha_values,test_type,critical_values)
+result_df <- data.frame("Test_Statistic_W", "N","Alpha_Value","Test_Type","Critical","Decision")
+for (row in 1:nrow(data_df)) {
+   test_statistic_W_value <-data_df[["test_statistic_W"]][[row]]
+    n_value <-data_df[["n"]][[row]]
+    alpha_value <-data_df[["alpha_values"]][[row]]
+    test_type_value <-data_df[["test_type"]][[row]]
+    critical_value <-data_df[["critical_values"]][[row]]
+    decision_value <- ifelse(test_statistic_W_value <= critical_value,"Reject Null Hypothesis","Failed to Reject Null Hypothesis")
+    result_df[nrow(result_df) + 1,] = c(test_statistic_W_value,n_value,alpha_value,test_type_value,critical_value,decision_value)
+}
+result_df <- result_df[-c(1), ]
+colnames(result_df) <- c("Test_Statistic_W", "N","Alpha_Value","Test_Type","Critical","Decision")
+result_df
+
+```
+## Section 13-5 
+
+### 13-5.2  Mathematics Literacy Scores  
+
+**Through the Organization for Economic Cooperation and Development (OECD), 15-year-olds are tested in member countries in mathematics, reading, and science literacy. Listed are randomly selected total mathematics literacy scores (i.e., both genders) for selected countries in different parts of the world. Test, using the Kruskal-Wallis test, to see if there is a difference in means at alpha = 0.05.** 
+
+``` {r , echo=FALSE , warning=FALSE, message=FALSE}
+Western_Hemisphere <- c(527,406,474,381,411)
+Europe <- c(520,510,513,548,496)
+Eastern_Asia <- c(523,547,547,391,549)
+regions <- data.frame(Western_Hemisphere,Europe,Eastern_Asia)
+print(kable(regions))
+```
+
+```{r }
+# Step 1: Stating Hypothesis
+# H0: There is no difference in mean score
+# H1: There is a difference in mean score
+
+# Set significance level
+alpha <- 0.05
+
+# Creating Dataframes for regions
+Western_Hemisphere <- data.frame(score = Western_Hemisphere,region = rep("Western_Hemisphere",5))
+
+Europe <- data.frame(score = Europe,region = rep("Europe",5))
+
+Eastern_Asia <- data.frame(score = Eastern_Asia,region = rep("Eastern_Asia",5))
+
+#Combining dataframes
+data <-rbind(Western_Hemisphere,Europe,Eastern_Asia)
+
+# Kruskal Test
+result <- kruskal.test(score ~ region, data = data)
+result
+
+# Step 2: Finding Critical Value
+#critical_value = qchisq(p=alpha, df=result$parameter, #lower.tail=FALSE)
+#critical_value
+# Step 3: Calculate Test Value
+result$statistic
+# Step 4: Decision
+# P-value
+result$p.value
+ifelse(result$p.value > alpha,"Failed to Reject Null Hypothesis","Reject Null Hypothesis")
+# Step 5: Conclusion
+# There is not enough evidence to conclude that there is difference in mean score
+```
+## Section 13-6  
+
+### 13-6.6 Subway and Commuter Rail Passengers    
+
+**Six cities are randomly selected, and the number of daily passenger trips (in thousands) for subways and commuter rail service is obtained. At alpha = 0.05, is there a relationship between the variables? Suggest one reason why the transportation authority might use the results of this study.**  
+
+``` {r , echo=FALSE , warning=FALSE, message=FALSE}
+city <- c(1,2,3,4,5,6)
+subway <- c(845,494,425,313,108,41)
+rail <- c(39,291,142,103,33,38)
+transport <- data.frame(city,subway,rail)
+as.data.frame(t(transport)) %>% kable(col.names = NULL) %>% kable_styling()
+```
+
+```{r }
+# Step 1: Stating Hypothesis
+# H0: rho = 0
+# H1: rho != 0
+
+# Set significance level
+alpha <- 0.05
+
+# Combining Dataframes
+
+data <- data.frame(city = city, subway = subway, rail = rail)
+
+# Correlation Test
+result <- cor.test(data$subway,data$rail,method = "spearman")
+result
+
+# Step 2: Finding Critical Value
+#critical_value = qchisq(p=alpha, df=result$parameter, #lower.tail=FALSE)
+#critical_value
+# Step 3: Calculate Test Value
+result$estimate
+# Step 4: Decision
+# P-value
+result$p.value
+ifelse(result$p.value > alpha,"Failed to Reject Null Hypothesis","Reject Null Hypothesis")
+# Step 5: Conclusion
+# There is not enough evidence to conclude that rho = 0
+```
+
+Rho measures the strength and direction of association between two ranked variables.Here, Rho = 0.6 shows a moderate positive relationship between subways and commuter rail.This result can be used by authorities to better the Transport system, since there is a positive relationship it can be consluded that passengers using the commuter rail is using the subway as well. Hence, interlinking the two systems or bringing the subway stations closer to commuter rail would be a huge boon for commuters.
+
+## Section 14-3 
+
+### 14-3.16 Prizes in Caramel Corn Boxes   
+
+**A caramel corn company gives four different prizes, one in each box. They are placed in the boxes at random. Find the average number of boxes a person needs to buy to get all four prizes. (40)**   
+
+``` {r }
+# Number of times the experiment should be iterated
+no_of_exp <- 40
+
+# Number of gift boxes
+n <- 4
+# Set Initial Sum of Tries of Total All Experiment
+sum_of_try = 0
+#Iterating 40 Experiments
+for (count in 1:no_of_exp) {
+  # Setting Flags for all collected and individual prizes 
+  all_collected = 0
+  flag1 = 0
+  flag2 = 0
+  flag3 = 0
+  flag4 = 0
+  number_of_try = 0
+  while(all_collected!=1){
+    selection = sample(1:n,1, replace = TRUE, prob = c(0.25,0.25,0.25,0.25))
+    if(selection == 1){
+      flag1 = 1
+    }
+    if(selection == 2){
+      flag2 = 1
+    }
+    if(selection == 3){
+      flag3 = 1
+    }
+    if(selection == 4){
+      flag4 = 1
+    }
+    if((flag1 + flag2 + flag3 + flag4)== 4){
+      all_collected = 1
+      break
+    }
+  number_of_try = number_of_try + 1
+  }
+  sum_of_try = sum_of_try + number_of_try
+}
+# Average Number of Boxes needed to be purchased 
+avg = sum_of_try/no_of_exp
+avg
+```
+The average keeps varying based on the sample functions results for every code execution.
+Hence, the average number of purchases to get all gifts was found around 7 and 8.
+
+### 14-3.18  Lottery Winner     
+
+**To win a certain lotto, a person must spell the word big. Sixty percent of the tickets contain the letter b, 30% contain the letter i, and 10% contain the letter g. Find the average number of tickets a person must buy to win the prize. (30)**  
+
+
+
+``` {r }
+# Number of times the experiment should be iterated
+no_of_exp <- 30
+
+# Number of letter in word BIG
+n <- 3
+# Set Initial Sum of Tries of Total All Experiment
+sum_of_try = 0
+#Iterating 40 Experiments
+for (count in 1:no_of_exp) {
+  # Setting Flags for all collected and individual prizes 
+  all_collected = 0
+  flag1 = 0
+  flag2 = 0
+  flag3 = 0
+  flag4 = 0
+  number_of_try = 0
+  while(all_collected!=1){
+    # Probabilities are set based on probabilities for letter B(60%),I(30%),G(10%)
+    # Numbers 1-3 is assigned for each letter 'B','I','G' such that B = 1,I = 2, G = 3
+    selection = sample(1:n,1, replace = TRUE, prob = c(0.60,0.30,0.10))
+    if(selection == 1){
+      flag1 = 1
+    }
+    if(selection == 2){
+      flag2 = 1
+    }
+    if(selection == 3){
+      flag3 = 1
+    }
+    if((flag1 + flag2 + flag3)== 3){
+      all_collected = 1
+      break
+    }
+  number_of_try = number_of_try + 1
+  }
+  sum_of_try = sum_of_try + number_of_try
+}
+# Average Number of Boxes needed to be purchased 
+avg = sum_of_try/no_of_exp
+avg
+```
+
+The average keeps varying based on the sample functions results for every code execution
+Hence, the average number of lots to spell the word BIG was found around 7 and 8.
+
+\newpage
+
+# Conclusion
+
+* 13-2.6 Game Attendance : The athletic director's suggestion that the median number for the paid attendance at 20 local footballgames is 3000 was taken as the Null Hypothesis and couldn't be rejected, however in the scenario where programs for games need to be printed I would rather use average of the number of paid attendees.The given median 3000 would have sufficed for only half of the previous games, hence using the roundedaverage(3625) would be a better decision.
+
+* 3-2.10 Lottery Ticket Sales : A lottery outlet owner hypothesizes that she sells 200 lottery tickets a day. She randomlysampled 40 days and found that on 15 days she sold fewer than 200 tickets, there was not enough evidence to reject this hypothesis.
+
+* 13-3.4 Lengths of Prison Sentences: A random sample of men and women in prison,there was no evidence to reject the claim that there is no difference in the sentence received by each gender
+
+* 13-3.8 Winning Baseball Games: There wasn't sufficient evidence to conclude a difference in the number of wins in the National League (NL) and the American League.
+
+* 13-4.A: Null Hypothesis was Rejected for the inputs => (ws = 13, n = 15, alpha = 0.01, two-tailed),(ws = 32, n = 28, alpha = 0.025, one-tailed) and (ws = 22, n = 14, alpha = 0.10, two-tailed) and Failed to Reject for (ws = 65, n = 20, alpha = 0.05, one-tailed)
+
+* 13-5.2 Mathematics Literacy Scores: For the total mathematics literacy scores (i.e., both genders) for selected countries in different parts of the world, there is no evidence to show difference in the scores.
+
+* 13-6.6 Subway and Commuter Rail Passengers: Spearman’s rank correlation rho 0.6 was observed between commuter rail and subway, hence showing moderate positive relation
+
+* 14-3.16 Prizes in Caramel Corn Boxes: Average Purchases to get all 4 gifts was found around 7-8 purchases
+
+* 14-3.18 Lottery Winner: Average Lots to spell word "BIG" was found around 8-14 lots
+
+
+\newpage
+
+# References
+
+* Stats: Hypothesis Testing. (2022). Retrieved 10 February 2022, from https://people.richland.edu/james/lecture/m170/ch09-def.html#:~:text=If%20the%20original
+
+* Scholtens, R., van Munster, B., van Kempen, M., & de Rooij, S. (2016). Physiological melatonin levels in healthy older people: A systematic review. Journal Of Psychosomatic Research, 86, 20-27. doi: 10.1016/j.jpsychores.2016.05.005
+
+* Runs Test. (2022). Retrieved 13 February 2022, from https://www.investopedia.com/terms/r/ru
+
+* Spearman's Rank-Order Correlation - A guide to when to use it, what it does and what the assumptions are. (2022). Retrieved 13 February 2022, from https://statistics.laerd.com/statistical-guides/spearmans-rank-order-correlation-statistical-guide.php#:~:text=The%20Spearman's%2
+

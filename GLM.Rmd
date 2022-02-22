@@ -1,0 +1,403 @@
+---
+title: "  **GLM and Logistic Regression**"
+output: pdf_document
+header-includes:
+  - \usepackage{fancyhdr}
+  - \usepackage{setspace}\spacing{1.5}
+  - \usepackage{titling}
+  - \pretitle{\begin{center}
+    \includegraphics[width=6in,height=11in]{image.png}\LARGE\\}
+  - \posttitle{\end{center}}
+  - \usepackage{sectsty} \sectionfont{\emph}
+---
+\begin{centering}
+\vspace{1cm}
+\large
+{\bf Submitted By : David Joseph Johnson } \\
+\vspace{.75cm}
+{\bf 01/30/2022 } \\
+\end{centering}
+\newpage
+\tableofcontents
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+The ISLR package provides dataset to perform and learn applications of Statistical Learning.In this analysis, the College dataset from this package is invoked and a model is created to predict if a College is Private or Public.
+
+The College dataset was compiled from a dataset taken from the StatLib library which is maintained at Carnegie Mellon University and was used in the 1995 issue of US News and World Report, which contained statistics for a large number of US Colleges.
+
+It contains 777 observations with 18 variables.
+
+Generalised Linear Models generalizes linear regression by alllowing the linear model t be related to the response variables via a function where magnitude of the variance of each measurement is used to determine the predicted value.
+
+It is like a much complicated version of the slope function of a line where the y-value is found using slope and x values.However, the factors that actually affect the predictor must be determined and to attain a model with higher accuracy.
+
+Applications of Generalized Linear Model and Logistics Regression are to be executed in the process.
+
+\newpage
+
+# Analysis
+
+```{r , echo=FALSE ,results='hide', warning=FALSE, message=FALSE}
+### Install ISLR Package which contains the College Dataset
+### Invoke Packages
+library("ISLR")
+library("ggplot2")
+library("corrplot")
+library("dplyr")
+library("janitor")
+library("tidyr")
+library("RColorBrewer")
+library("car")
+library("psych")
+library("imputeTS")
+library("corrplot")
+library("MASS")
+library("leaps")
+library("knitr")
+library("tibble")
+library("stargazer")
+library("lattice")
+library("caret")
+library("pROC")
+```
+
+
+## Task 1 (Importing Dataset College from ISLR Package and performing EDA)
+
+
+```{r }
+# The package ISLR was installed and its libraries where invoked,
+# hence directly calling the dataset would suffice.
+df <- College
+```
+
+### Exploratory Data Analysis
+
+Initial Analysis is performed to better understand the dataset and variables under observation,the HEAD and TAIL of the dataset, and the structure of dataset is looked-up.
+
+```{r }
+# Head,Tail and Structure of Dataset
+head(df)
+tail(df)
+str(df)
+```
+
+Diagnostics of the internal structure of the dataset shows the datatypes of the variables as shown above.
+
+The summary of the dataset are obtained using the stargazer library with the minimum,mean and median along with the 1st and 3rd Quadrants of the numeric variables are as follows:
+
+
+
+```{r }
+stargazer(df,type = "text",title = "Table 1 : Summary of the College dataset")
+```
+
+Further the standard-deviations and standard-error is also observed as follows:
+```{r }
+# Describing the Dataset
+describe(df)
+```
+
+\newpage
+
+### Data Visualizations
+
+```{r }
+# Histogram of Graduation Rate
+ggplot(df, aes(x=Grad.Rate, color=Private)) + 
+  geom_histogram(binwidth=1,fill="white", alpha=0.5, position="identity") +
+  geom_vline(data=df, aes(xintercept=mean(Grad.Rate)),
+             linetype="dashed") +
+  labs(caption="Figure 1.Histogram of Graduation Rate,Graduation Rate of Private Vs
+  Non-Private Colleges",x="Graduation Rate", y = "Count") +
+  theme(plot.caption = element_text(hjust = 0.5))
+```
+
+A histogram of the count Graduation Rates with Private and Public colleges being created in a layered format as shown above, clearly shows the dominance of Private colleges in terms of count and graduation rate in most percentiles.
+
+\newpage
+
+```{r }
+# Jitterplot of Expenditure
+ggplot(df, aes(x=Private, y=Expend/1000, color=Private)) + 
+  geom_boxplot(notch=FALSE,outlier.colour="yellow", outlier.shape=8,
+                outlier.size=1) +
+  geom_jitter(shape=16, position=position_jitter(0.2)) +
+  labs(caption="Figure 2. Jitterplot of Expenditure,
+  Show the difference in expenditure in Private and Non-Private Colleges",
+  x="Is a Private College", y = "Expenditure (in 1000s)?") +
+  theme(plot.caption = element_text(hjust = 0.5))
+```
+
+The jitterplot created shows an overall higher mean expenditure for Private colleges compared to Public Colleges.
+Few Private Colleges also showed very high difference compared to other colleges on the whole, with the maximum expenditure at $57000.
+Although this seems to be a mean expenditure on Private Colleges at present, it is important to keep in mind that this dataset was compiled in 1995 and that the dollar had an average inflation rate of 2.26% per year between 1995 and today, producing a cumulative price increase of 82.94%.
+
+\newpage
+
+## Task 2 (Split Data into a train and test set)
+
+```{r }
+# Splitting Dataset into train and test sets
+trainIndex <- sort(sample(x=nrow(College),size = nrow(College)*0.7))
+
+set.seed(3456) 
+trainIndex <- createDataPartition(College$Private, p = 0.7, list = FALSE, times = 1) 
+
+train <- College[trainIndex,]
+test <- College[-trainIndex,]
+
+df <- College
+
+df$Private <-as.factor(df$Private)
+# Comparision using Viewing the datasets after split
+head(train)
+head(test)
+
+df <- College
+```
+
+Datasets are split into train and test which 70% in train and 30% in test,this ratio is commonly used as Empirical studies show that the best results are obtained if we use 20-30% of the data for testing, and the remaining 70-80% of the data for training.
+
+
+## Task 3 (Fit Logistic Regression Model)
+```{r }
+# Model 1
+model1 <- glm(Private ~.,data = College,family = binomial(link = "logit"))
+summary(model1)
+```
+
+From the summary of the Model 1 it is understood that the following columns have a greater dependence with the column Private:
+
+* Apps
+
+* F.Undergrad
+
+* Outstate
+
+* PhD
+
+* perc.alumni
+
+* Expend
+
+
+Hence, Model 2 is created using these variables alone.
+
+```{r }
+# Model 2
+model2 <- glm(Private ~ Apps + F.Undergrad + Outstate + PhD + perc.alumni + Expend,
+data = College,family = binomial(link = "logit"))
+summary(model2)
+```
+
+```{r }
+# Comparing the Models
+
+## Display regression coefficients (log-odds)
+### Model 1
+coef(model1)
+### Model 2 
+coef(model2)
+
+## Display regression coefficients (odds)
+### Model 1
+exp(coef(model1))
+### Model 2 
+exp(coef(model2))
+
+```
+
+These values show the factor by which each respective variable affects Private.
+
+```{r }
+## The two models can be compared using Akaike information criterion test 
+AIC(model1,model2)
+```
+AIC test gives a AIC value of each model and the model with lower AIC value is preffered as it has less KL divergence and is therefore more suitable. Hence, Model 2 which has lower AIC value is considered a better model.
+
+
+## Task 4 (Confusion Matrix on Train set)
+```{r }
+## Making predictions on train data using lambda.min 
+probabilities.train <- predict(model2, newdata = train, type = "response")
+
+predicted.classes.min <- as.factor(ifelse(probabilities.train >= 0.5 ,"Yes","No"))
+
+## Model Accuracy
+model2_CM <-confusionMatrix(predicted.classes.min,train$Private,positive="Yes")
+model2_CM
+```
+
+### Interpretation
+The confusion Matrix is used to compare the predicted values and actual values to find the accuracy of the model.
+Model 2 Train dataset showed an accuracy of 94.31%, which means that it predicted 94.31% of the records to be Private or Public.
+The miscalculations that occurred where as follows:
+- 14 false-positives
+- 17 false-negatives
+The confidence interval of the model is (0.9202, 0.961).
+
+### Which is more damaging, False Positives or False Negatives?
+Model 2 Train dataset showed more False Negatives as compared to False Positives i.e, it predicted that the college is not Private when it is actually a Private College.
+The extent of the damage caused by false-negatives and false-positives depends a lot on the aim of the analysis.
+For.Example: For a couple looking forward to have a baby would be more damaged by a false positive, and a couple who isn't ready to have a child would be damaged by false-negatives.
+
+Similarly, if the analysis is more keen on a college being Private, false positives would damage more and vice-versa.
+
+\newpage
+
+## Task 5 (Accuracy, Precision, Recall, and Specificity of Confusion Matrix on Train set)
+
+The metrics Accuracy, Precision, Recall and Specificity can be determined by the number of True Negatives(TN),True Positives(TP),False Negatives(FN) and False Positives(FP).
+
+Accuracy determines the chances of the model to be correct and is calculated by the formula:\newline
+(TN + TP)/(TN + FP+ FN + TP)
+
+
+Precision or the positive predictive value determines the extent of correctness of the model and is calculated by the formula: \newline (TP)/(FP+ TP)
+
+
+Recall or sensitivity is the fraction of relevant instances that were retrieved and is calculated by the formula:\newline
+(TP)/(FN + TP)
+
+
+Specificity is the proportion of observed negatives that were predicted to be negatives and is calculated by the formula:\newline
+TN/(TN + FP)
+
+
+```{r }
+# Metrics of Model 2 Train dataset
+cm_tab_values <- as.numeric(model2_CM$table)
+TN <- cm_tab_values[1]
+FP <- cm_tab_values[2]
+FN <- cm_tab_values[3]
+TP <- cm_tab_values[4]
+
+## Accuracy of Model 2 Train dataset
+print((TN + TP)/(TN + FP+ FN + TP))
+
+## Precision of Model 2 Train dataset
+print((TP)/(FP+ TP))
+
+## Recall of Model 2 Train dataset
+print((TP)/(FN + TP))
+
+## Specificity of Model 2 Train dataset
+print(TN/(TN + FP))
+
+```
+
+## Task 6 (Confusion Matrix and results of Test dataset)
+```{r }
+## Making predictions on test data using lambda.min 
+probabilities.test <- predict(model2, newdata = test, type = "response")
+
+predicted.classes.min <- as.factor(ifelse(probabilities.test >= 0.5 ,"Yes","No"))
+
+## Model Accuracy
+model2_CM <-confusionMatrix(predicted.classes.min,test$Private,positive="Yes")
+model2_CM
+```
+
+Model 2 Test dataset showed an accuracy of 93.97%, which means that it predicted 93.97% of the records to be Private or Public.
+The miscalculations that occurred where as follows:
+- 6 false-positives
+- 8 false-negatives
+The confidence interval of the model is (0.9008, 0.9666).
+
+```{r }
+# Metrics of Model 2 Test dataset
+cm_tab_values <- as.numeric(model2_CM$table)
+TN <- cm_tab_values[1]
+FP <- cm_tab_values[2]
+FN <- cm_tab_values[3]
+TP <- cm_tab_values[4]
+
+## Accuracy of Model 2 Test dataset
+print((TN + TP)/(TN + FP+ FN + TP))
+
+## Precision of Model 2 Test dataset
+print((TP)/(FP+ TP))
+
+## Recall of Model 2 Test dataset
+print((TP)/(FN + TP))
+
+## Specificity of Model 2 Test dataset
+print(TN/(TN + FP))
+
+```
+## Task 7 (Plot and Interpret ROC curve)
+
+ROC or Receiver Operator Charachteristic curveis used to plot and understand the trade-off between sensitivity and specificity.Classifiers that give curves closer to the top-left corner indicate better performance.The closer a curve is to the 45 degree diagonal of the ROC space the less accurate the test.
+
+ROC is performed on the Test Dataset, although it can be used on the Train Dataset as well, however since we are measuring the performance of the model, the train dataset which was used to train the model has a direct relation and hence wouldn't give the required result.
+
+Also, the existence of the test data set is to in fact provide a sample to test the performance.
+
+
+
+```{r }
+# Plot ROC
+
+ROC_Test <- roc(test$Private,probabilities.test)
+
+plot(ROC_Test,col="blue",ylab="Sensitivity - TP Rate", xlab="Specificity - FP Rate")
+```
+
+#### \hspace{82pt} Figure 3.ROC of Test Dataset,Shows Specificity Vs Sensitivity \newline
+
+The curve plotted is towards the top-right corner, hence showing good performance.The specificity remains at 1 til 0.8 sensitivity and has very slight deviations as it reaches sensitivity of 1.0.
+Hence, it is concluded that Model 2 performs predictions very well. 
+
+\newpage
+
+## Task 8 (Calculate and interpret AUC)
+
+The Area Under the Curve(ROC curve), shows the measure of usefulness of the test in general i.e greater the area under the ROC curve, greater the usefulness of the test.
+Usefullness based on AUC is as follows:
+
+*  0.9 - 1   : excellent
+
+*  0.8 - 0.9 : good
+
+*  0.7 - 0.8 : fair
+
+*  0.6 - 0.7 : poor
+
+*  0.5 - 0.6 : failed
+
+```{r }
+# Calculate area under the ROC curve
+auc <- auc(ROC_Test)
+auc
+```
+
+Hence, we conclude that the test shows excellent usefullness with a high AUC of 0.9843
+
+\newpage
+
+# References
+
+* (2022). Retrieved 31 January 2022, from https://cran.r-project.org/web/packages/ISLR/ISLR.pdf
+
+* Statistics, B., & Index, C. (2022). $1 in 1995 → 2022 | Inflation Calculator. Retrieved 31 January 2022, from https://www.in2013dollars.com/us/inflation/1995?amount=1#:~:text=%241%20in%20199
+
+* &rarr;, V. (2022). False Positive vs. False Negative | . Retrieved 31 January 2022, from https://blogs.ams.org/mathgradblog/2016/08/06/false-positive-vs-false-negative/
+
+* 6.1 - Introduction to GLMs | STAT 504. (2022). Retrieved 31 January 2022, from https://online.stat.psu.edu/stat504/lesso
+
+* Accuracy Vs Precision – NoSimpler. (2022). Retrieved 31 January 2022, from https://www.nosimpler.me/accuracy-precision/
+
+* set?, W. (2017). Why ROC Curve on test set?. Retrieved 31 January 2022, from https://stats.stackexchange.com/questions/265661/why-roc-curve-on-test-set
+
+* What is a ROC Curve and How to Interpret It. (2018). Retrieved 31 January 2022, from https://www.displayr.com/what-is-a-roc-curve-how-to-interpret-it/
+
+* ROC curves – what are they and how are they used?. (2011). Retrieved 31 January 2022, from https://acutecaretesting.org/en/articles/roc-curves-what-are-they-and-how-are-they-used#:~:text=As%20 \\ the%20area%20under%20an,stands%20for%20Receiver%20Operating%20Characteristic.
+
+

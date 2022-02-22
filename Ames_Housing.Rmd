@@ -1,0 +1,431 @@
+---
+title: "Correlation_Analysis_Ames_Housing_Dataset"
+author: "David Joseph Johnson"
+date: "1/16/2022"
+output: pdf_document
+---
+
+\newpage
+\tableofcontents
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+In this analysis we intend to exercise Correlation and Regression, and thereby find trends or patterns in relatioship between on or more variables.
+
+Dataset: The given dataset contains information about residential properties sold in Ames, IA (from the period of 2006 to 2010) recorded by the Assessor's Office. It contains 2930 observation's with 82 attributes.
+
+Correlation is the degree of measure by which the co-ordination or relation between two variables are measured.
+
+The idea is to analyze relations between attributes like Price of a property with other attributes, thereby giving insights about the factors that affect the residential real estate in the region.
+
+Regression is used to determine the strength of relationship with the dependent variables and other variables, in this case by building relevant regression models.
+
+The models are further assessed and improvised to find the best suitable model, from which further conclusions are derived.
+
+
+\newpage
+
+## Analysis
+
+### Invoke Packages
+```{r , echo=TRUE ,results='hide', warning=FALSE, message=FALSE}
+library("ggplot2")
+library("corrplot")
+library("dplyr")
+library("janitor")
+library("tidyr")
+library("RColorBrewer")
+library("car")
+library("psych")
+library("imputeTS")
+library("corrplot")
+library("MASS")
+library("leaps")
+```
+### 1.Loading the Dataset
+```{r }
+raw_data <- read.csv(
+  "AmesHousing.csv",
+  header = TRUE)
+df<-raw_data
+```
+
+### 2.Exploratory Analysis
+
+Initial Analysis is performed to better understand the dataset and variables under observation,the HEAD and TAIL of the dataset, and the structure of dataset is looked-up.
+
+```{r }
+# Head,Tail and Structure of Dataset
+head(df)
+tail(df)
+str(df)
+
+```
+Diagnostics of the internal structure of the dataset shows the datatypes of the variables as shown above.
+
+The summary of the dataset with the minimum,mean and median along with the 1st and 3rd Quadrants of the numeric variables are as follows:
+
+
+```{r }
+# Summary of Dataset
+summary(df)
+typeof(df$garage_yr_blt)
+```
+
+Further the standard-deviations and standard-error is also observed as follows:
+```{r }
+# Describing the Dataset
+describe(df)
+```
+
+Visialisations of the dataset are created for further Exploratory Analysis
+
+```{r }
+# Histogram of Garage Year Built
+hist(df$Garage.Yr.Blt, main="Histogram of Garage Year Built", xlab = "Garage Year Built")
+```
+
+Addition of garages to the house, was same as the year when the house was built for most properties. It can be noted that the idea of a garage as an amenity started becoming popular to households between 1975 and 2000, and later between 2000 - to present, 
+
+\newpage
+
+```{r }
+# Boxplot of SalePrice
+boxplot((df$SalePrice)/1000, main="Sales_Price*1000")
+```
+
+Although, many sales where recorded at Prices above 375k, the mean SalesPrice is 180k and the median SalesPrice around 160k.
+
+\newpage
+
+```{r }
+# Scatterplot of SalePrice VS Above Ground Living Area
+scatterplot((df$SalePrice)/1000 ~ df$Gr.Liv.Area, data = df,main="Sales_Price Vs Living Area Above Ground",xlab = "Greater Living Area",ylab = "Sales Price * 1000")
+```
+In general,a gradual increase in SalesPrice, for properties with Above Ground Living Area is observed, although multiple scattered observations varying from this trend was also obeserved, hence depicting the contribution of various other factors to SalesPrice of a property.
+
+### 3.Preparing the dataset for modeling by imputing 
+Multiple, N/A values was observed, hence before creating the models it is vital to impute these values.
+In this case the numeric values were replaced with its mean values for numeric variables.
+
+For non-numeric variables, it was replaced with the strings "N/A" and "None", according to its relevance.
+
+```{r , warning=FALSE, message=FALSE}
+# Imputing numeric columns using package imputeTS
+df <- na_mean(df)
+# Explicitly imputing non-numeric columns
+df$Alley[is.na(df$Alley)] <- "None"
+df$Bsmt.Qual[is.na(df$Bsmt.Qual)] <- "None"
+df$Bsmt.Cond[is.na(df$Bsmt.Cond)] <- "N/A"
+df$Bsmt.Exposure[is.na(df$Bsmt.Exposure)] <- "N/A"
+df$BsmtFin.Type.1[is.na(df$BsmtFin.Type.1)] <- "N/A"
+df$BsmtFin.Type.2[is.na(df$BsmtFin.Type.2)] <- "N/A"
+df$Fireplace.Qu[is.na(df$Fireplace.Qu)] <- "N/A"
+df$Garage.Type[is.na(df$Garage.Type)] <- "None"
+df$Garage.Finish[is.na(df$Garage.Finish)] <- "N/A"
+df$Garage.Qual[is.na(df$Garage.Qual)] <- "N/A"
+df$Garage.Cond[is.na(df$Garage.Cond)] <- "N/A"
+df$Pool.QC[is.na(df$Pool.QC)] <- "N/A"
+df$Fence[is.na(df$Fence)] <- "N/A"
+df$Misc.Feature[is.na(df$Misc.Feature)] <- "None"
+```
+
+### 4.Correlation Plot of Numeric Values
+
+The numeric values are filtered and correlation values between -1 and 1 are computed.
+
+```{r ,echo=TRUE,warning=FALSE, message=FALSE}
+# Filtering Numeric Columns
+df2<-select_if(df, is.numeric)
+matrix_format <- cor(df2)
+matrix_format
+```
+
+
+\newpage
+
+### 5.Correlation Matrix
+
+The values computed can be visually depicted as a matrix for easier understanding.
+
+```{r ,echo=TRUE,warning=FALSE, message=FALSE}
+corrplot(matrix_format,tl.cex=0.55)
+```
+
+-1 shows negative linear correlation
+
+ 0 shows no correlation
+ 
++1 shows positive linear correlation
+
+The strenght of the relationship is stronger as the correlation coefficient moves away from 0
+
+\newpage
+
+### 6.Highest, Lowest and ~ 0.5 Correlation with Salesprice
+From the Correlation Plot and Correlation Matrix the following observations where made:
+
+1.Overall Quality had the highest correlation with SalePrice(0.799261795)
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+# Scatterplot of SalePrice VS Overall Quality
+scatterplot((df$SalePrice/1000) ~ df$Overall.Qual, data = df,main="Sales_Price VS Overall Quality",xlab = "Overall Quality",ylab = "Sales Price * 1000")
+```
+
+An increase in SalesPrice and Overall Quality can be observed, and was consistent when Overall Quality was between 4 and 8.
+
+\newpage
+
+2.Rating of basement finished area types had the highest correlation with SalePrice(0.005889764)
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+# Scatterplot of SalePrice VS Rating of basement finished area types
+scatterplot((df$SalePrice/1000) ~ df$BsmtFin.SF.2, data = df,main="Sales_Price VS Rating of basement finished area types",xlab = "Rating of Basement Finished Area",ylab = "Sales Price * 1000")
+```
+
+Higher sales are observed for properties with no-basement in terms of frequency and higher SalesPrice.
+
+\newpage
+
+3.Masonry veneer area in square feet had a correlation ~0.5 with SalePrice(0.505784081)
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+# Scatterplot of SalePrice VS Masonry veneer area in sq.ft
+scatterplot((df$SalePrice/1000) ~ df$Mas.Vnr.Area, data = df,main="Sales_Price VS Masonry veneer area in sq.ft",xlab = "Masonry veneer area in sq.ft",ylab = "Sales Price * 1000")
+```
+
+Masonry Veneer Area has a linear increase with SalesPrice, however more number of sales are observed within a range of 0 - 500 sq.ft which could indicate that buyers are fond of Masonry Veneer, however due to direct impact on total prciing as the area under masonry veneer increases, buyers stick to more viable options.
+
+
+\newpage
+
+### 7.Regression Model using Lot Frontage,Lot Area and SalesPrice
+
+A property with more Lot Frontage is more aesthetic and adds to the appeal of the property on the whole, and hence should affect the price of the property. Hence, an analysis of the Lot Frontage, Lot Area (which by default is directly proportional to the SalesPrice) and the SalesPrice is taken into consideration for the following regression model.
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+model_One = lm(formula = SalePrice ~ Lot.Frontage + Lot.Area , data=df)
+```
+
+### 8.Model Equation and Coefficients
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+summary(model_One)
+AIC(model_One)
+BIC(model_One)
+```
+
+Algebraically, the equation for Simple Regression Model is:
+
+ y = Est.Val Intercept + Estimate Value of row X(i:n) + Epsilon(0,(Residual.Std.Error)^2),
+ 
+ Therefore, ( 9.109e+04 ) + (1.052e+0) + (1.662e+00) +  Epsilon(0,(74140)^2).
+ 
+ INTERPRETATION:
+ 
+ SalesPrice increase linearly, with every addition of 1.052e+0 :  Lot Frontage to 9.109e+04 (Intercept)
+ 
+ SalesPrice increase linearly, with every addition of 1.052e+0 :  Lot Area to 9.109e+04 (Intercept)
+ 
+
+\newpage
+
+### 9.Plots of the Regression Model
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+plot(model_One)
+```
+
+Residuals VS Fitted 
+
+This graph is used to observe the linearity or usual trend in the data, hence in this case a clustering of data points, and data points not along the line indicates an ineffective model.
+
+Normal Q-Q Graph
+
+The second graph depicts the normality of the data, and towards both ends of the plot it is observed that the data points do not fllow the dotted lines, hence indicating a possibility of outliers.
+
+Scale-Location Graph
+
+The third graph shows the constant variance, which in this case shows a cluster at the lower end and multiple outliers.
+
+Residuals Vs Leverage Graph 
+
+The fourth graph shows unusual observations
+
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+# Q-Q Plot (Normality)
+qqPlot(model_One, simulate= TRUE,main = "Q-Q Plot")
+```
+
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+# Components - Residuals Plot (Linearity)
+crPlots(model = model_One)
+
+```
+
+
+\newpage
+
+### 10.Checking Multicollinearity
+
+High Correlation among the predictors are checked using the following:
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+# Variance Inflation Factor
+vif(model_One)
+
+```
+Less than 5 hence no issues, should be concerned if greater than 10
+
+Two ways to reduce multi-collinearity are:
+
+1.Remove the highly correlated variables.
+
+2.Combine the highly correlated variables.
+
+
+
+### 11.Outliers Test
+
+Multiple indications of outliers where observed previously, hence the following test reveals outliers present in the dataset.
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+
+outlierTest(model = model_One)
+```
+
+It is not always correct to remove outliers as sometimes, these unusual data points can be informative and hence be required for the analysis.
+
+However, in this case, few datapoints show unusually overprice SalesPrice when compared to corresponding attributes, also observing that huge number of data points cluster therefore showing a common trend, the outliers can be removed in this case.
+
+### 12.Correcting Model By Removing Outliers
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+# Remove Outliers
+df <- df[-c(1768,1761,45,1064,433,1499,1638,2331,434,2446), ]
+model_Two = lm(formula = SalePrice ~ Lot.Frontage + Lot.Area , data=df)
+summary(model_Two)
+
+# Old Model
+par(mfrow = c(2,2))
+plot(model_One)
+
+
+# New Model
+par(mfrow = c(2,2))
+plot(model_Two)
+```
+
+Removing the outliers had very little or negligible impact on the plots, hence showing the need to reconsider the variables selected for the models.
+
+### 13.Subset Regression to find BEST model
+
+In the correlation test, Overall Quality should very high correlation with the Sales Price, hence in subset-regression to find the bset model, the attribute Overall Quality is also included.
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+filtered_df <- df %>% dplyr::select(SalePrice,Lot.Frontage, Lot.Area, Overall.Qual)
+# Model
+model_Three <- lm(filtered_df$SalePrice ~ filtered_df$Lot.Frontage + filtered_df$Lot.Area + filtered_df$Overall.Qual, data = filtered_df)
+
+#Backward stepwise selection
+stepAIC(model_Three, direction = "backward")
+
+#Forward stepwise selection
+stepAIC(model_Three, direction = "forward")
+
+#Both stepwise selection
+stepAIC(model_Three, direction = "both")
+```
+All three models showed a 3 Predictor Model, i.e use of all three attributes in its model.
+Since the AIC score also remains same for all three models, it is best to conclude that the model is more effective with all three attributes.
+
+This can be verified by performing subset regression to find the best model.
+
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+leaps <- regsubsets(filtered_df$SalePrice ~ filtered_df$Lot.Frontage + filtered_df$Lot.Area + filtered_df$Overall.Qual,  data = filtered_df,nbest = 4)
+
+summary(leaps)
+
+#Plot
+
+plot(leaps, scale= "adjr2")
+```
+
+By interpreting the plot, it is verified that use of all three attributes gives the best model, and thereby the model equation for the same is given as follows:
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+summary(model_Three)
+plot(model_Three)
+```
+
+Equation of Best Model:
+
+ [ -1.257e+05 (Intercept) ] + [ 5.462e+02 (Lot.Frontage) ]  + [ 1.407e+00 (Lot.Area) ]+ [ 4.162e+04 (Overall.Quality) ] + Epsilon(0,(41250)^2)
+
+### 14.Preferred Model
+
+Hence, the preferred model will be the model_Three, which includes Lot.Frontage, Lot.Area and the Overall.Quality,
+this was verified by the unusual plots of model_One and model_Two, it was further confirmed by the Subset Regression.
+
+
+
+
+Plots of Preferred Model
+
+```{r message=FALSE, warning=FALSE, ,echo=TRUE}
+plot(model_Three)
+```
+
+
+
+
+
+Also, plots generated from this model shows better Linearity and Normality.
+
+
+\newpage
+
+## Conclusions
+
+The following insights can be concluded from the analysis:
+
+* Sales Price are usually ranged within 400k with few unusual exceptions.
+
+* Sale Price Linearly increased with Living Area above ground, however more sales where noted for area in the range of 500 - 2000 sq.ft
+
+* Masonry Veneer increases the Sales Price linearly and hence buyers are more inclined to properties with lower masonry veneer in terms of sq.ft constructed in brick or stone.
+
+* Similarly, basements with finished area was preferred in lower total area or not preferred at all.
+
+* The Sales Price of a residential property in the given dataset is directly affected by all three factors, Lot.Frontage, Lot.Area and Overall.Quality
+
+* It is also noted that Overall.Quality has a higher impact, let alone the other factors.
+
+
+
+\newpage
+
+## References
+
+* City Assessor | City of Ames, IA . (2022). Retrieved 17 January 2022, from https://www.cityofames.org/government/departments-divisions-a-h/city-assessor
+
+* What Is Correlation in Finance? . (2022). Retrieved 17 January 2022, from https://www.investopedia.com/terms/c/correlation.asp#:~:text=Correlation%20is%20a%20statistical%20term,they%20have%20a%20negative%20correlation.
+
+* PDF?, H. (2015). How to separate Title Page and Table of Content Page from knitr rmarkdown PDF?. Retrieved 16 January 2022, from https://stackoverflow.com/questions/30972442/how-to-separate-title-page-and-table-of-content-page-from-knitr-rmarkdown-pdf
+
+* mean, R., Grothendieck, G., & Moritz, S. (2014). Replace missing values with column mean. Retrieved 16 January 2022, from https://stackoverflow.com/questions/25835643/replace-missing-values-with-column-mean
+
+* Zach, V. (2021). How to Fix in R: error in select unused arguments - Statology. Retrieved 17 January 2022, from https://www.statology.org/dplyr-error-in-select-unused-arguments/
+
+* Frost, J. (2017). Multicollinearity in Regression Analysis: Problems, Detection, and Solutions. Retrieved 17 January 2022, from https://statisticsbyjim.com/regression/multicollinearity-in-regression-analysis/
+
+
+
